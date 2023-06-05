@@ -21,5 +21,5 @@ UmiJs v3 plugin: chromium extension development
 | popupPathName | string | "popup" | 气泡页的目录名 | - |
 | support360 | boolean | false | build时是否构建出360浏览器版本的构建,360浏览器版本的构建和Chrome版本的构建的区别就是默认不带`update_url`,360浏览器版本的构建会复制一份Chrome版本的构建到360的目录,然后在`manifest.json`文件中增加`update_url`属性赋值到360的更新服务器 | 0.0.8 |
 
-###已知问题:
+### 已知问题:
 目前dev状态下偶尔会报umi入口不存在而停止运行,主要是因为通过浏览器直接访问了dev服务器的网页导致的,插件开发的过程中不需要访问网页,建议修改dev服务器的配置,将port修改到五位数大端口,将host修改成`127.0.0.1`,以保证不会被意外的访问导致dev服务器停止运行.
