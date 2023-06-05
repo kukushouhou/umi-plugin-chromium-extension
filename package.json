@@ -1,6 +1,6 @@
 {
   "name": "umi-plugin-chromium-extension",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "UmiJs v3 plugin: chromium extension development",
   "authors": [
     "kukushouhou <1@kukushouhou.com> (https://kukushouhou.com)"
