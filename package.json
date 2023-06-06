@@ -1,6 +1,7 @@
 {
   "name": "umi-plugin-chromium-extension",
-  "version": "0.0.9",
+  "version": "0.1.0",
+  "homepage": "https://github.com/kukushouhou/umi-plugin-chromium-extension",
   "description": "UmiJs v3 plugin: chromium extension development",
   "authors": [
     "kukushouhou <1@kukushouhou.com> (https://kukushouhou.com)"
@@ -9,6 +10,13 @@
     "lib",
     "src"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kukushouhou/umi-plugin-chromium-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kukushouhou/umi-plugin-chromium-extension/issues"
+  },
   "license": "MIT",
   "main": "lib/index.js",
   "scripts": {
