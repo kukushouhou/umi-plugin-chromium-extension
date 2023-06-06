@@ -2,9 +2,16 @@
 
 UmiJs v3 plugin: chromium extension development
 
-这个插件可以让你用UmiJs v3.x.x下开发Chromium扩展，可以自动的扫描出相应目录下的`Content_Scripts`、`Background`、`Options`与`Popup`的入口文件，并自动生成相应的`manifest.json`文件。
+这个插件可以让你用UmiJs v3.x.x下开发Chromium扩展，可以自动的扫描出相应目录下的`Content_Scripts`、`Background`、`Options`与`Popup`的入口文件，并自动生成相应的`manifest.json`文件。  
+
+目前仅支持`Manifest V2`版本的插件,未适配`Manifest V3`.
 
 ## 使用方法：
+输入以下指令安装:  
+```
+npm i umi-plugin-chromium-extension --save-dev
+```  
+
 安装插件后在`.umirc.ts`或`.umirc.js`文件中的`plugins`选项中加入`umi-plugin-chromium-extension`,然后根节点加入`chromiumExtension`选项自定义配置然后运行即可.
 
 | 配置项 | 类型 | 默认值 | 说明 | 版本 |
