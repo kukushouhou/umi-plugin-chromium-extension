@@ -4,6 +4,7 @@ import Assert from 'assert';
 import Semver from 'semver';
 import {IApi} from '@umijs/types';
 import HTMLWebpackPlugin from 'html-webpack-plugin';
+import fs from "fs";
 
 
 interface isConfig {
@@ -18,6 +19,7 @@ interface isConfig {
     optionsPathName: string;
     popupPathName: string;
     support360: boolean;
+    clearAbsPath: boolean;
 }
 
 const DefaultConfig: isConfig = {
@@ -31,7 +33,8 @@ const DefaultConfig: isConfig = {
     backgroundPathName: "background",
     optionsPathName: "options",
     popupPathName: "popup",
-    support360: false
+    support360: false,
+    clearAbsPath: true
 };
 
 
@@ -64,14 +67,15 @@ export default function (api: IApi) {
                     backgroundPathName: joi.string(),
                     optionsPathName: joi.string(),
                     popupPathName: joi.string(),
-                    support360: joi.boolean().default(false)
+                    support360: joi.boolean().default(false),
+                    clearAbsPath: joi.boolean().default(true)
                 });
             },
         }
     });
 
     const pluginConfig = initPluginConfig();
-    const {rootPath, mainFileName, backgroundPathName, optionsPathName, popupPathName, contentScriptsPathName, configFileName, encoding, distPathBefore, splitChunks, support360} = pluginConfig;
+    const {rootPath, mainFileName, backgroundPathName, optionsPathName, popupPathName, contentScriptsPathName, configFileName, encoding, distPathBefore, splitChunks, support360, clearAbsPath} = pluginConfig;
 
     const contentScriptsPath = Path.posix.join(rootPath, contentScriptsPathName);
     const backgroundPath = Path.posix.join(rootPath, backgroundPathName);
@@ -125,8 +129,23 @@ export default function (api: IApi) {
     });
 
     // Build完成后写入清单文件
-    api.onBuildComplete(() => {
+    api.onBuildComplete(({stats, err}) => {
+        if (err) return;
         writeManifestJson(manifestJson, outputPath);
+        if (clearAbsPath) {
+            const {absOutputPath} = api.paths;
+            if (stats && absOutputPath) {
+                for (const stat of stats.stats) {
+                    for (const chunk of stat.compilation.chunks) {
+                        for (const file of chunk.files) {
+                            if (/.*\.jsx*$/.test(file)) {
+                                clearAbsPathName(Path.join(absOutputPath, file));
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (support360) {
             // 需要把chrome的编译结果复制到360
             copyFilesSync(outputPath, Path.posix.join(outputPath, '..', '360'), ['manifest.json']);
@@ -179,6 +198,26 @@ export default function (api: IApi) {
         }
         return webpackConfig;
     });
+
+    function clearAbsPathName(path: string) {
+        const fileText = fs.readFileSync(path, 'utf-8');
+        let index = fileText.indexOf("_node_modules_umijs_babel_preset_umi_node_modules_babel_runtime_helpers_esm_asyncToGenerator_js__WEBPACK_IMPORTED_MODULE_0_");
+        if (index > 0) {
+            while (index--) {
+                if (fileText[index] === " ") {
+                    break;
+                }
+            }
+            const subText = fileText.slice(index);
+            const match = subText.match(/^\s*(.*?)_node_modules_umijs_babel_preset_umi_node_modules_babel_runtime_helpers_esm_asyncToGenerator_js__WEBPACK_IMPORTED_MODULE_0_/);
+            if (match) {
+                const pathName = match[1];
+                // console.log(pathName);
+                const outText = fileText.replace(new RegExp(pathName, 'g'), "__ROOT__");
+                fs.writeFileSync(path, outText, 'utf-8');
+            }
+        }
+    }
 
     // 新版本中已经不存在热更新文件了
     // api.onDevCompileDone(() => {
