@@ -1,10 +1,10 @@
 import Path from 'path';
 import Fs from 'fs';
+import fs from 'fs';
 import Assert from 'assert';
 import Semver from 'semver';
 import {IApi} from '@umijs/types';
 import HTMLWebpackPlugin from 'html-webpack-plugin';
-import fs from "fs";
 
 
 interface isConfig {
@@ -34,7 +34,7 @@ const DefaultConfig: isConfig = {
     optionsPathName: "options",
     popupPathName: "popup",
     support360: false,
-    clearAbsPath: true
+    clearAbsPath: true,
 };
 
 
@@ -44,7 +44,7 @@ export default function (api: IApi) {
         return;
     }
     const {logger, utils: {glob}} = api;
-    const umiVersion = process.env.UMI_VERSION;
+    const {UMI_VERSION: umiVersion, NODE_ENV} = process.env;
     Assert(
         Semver.gte(umiVersion, '3.0.0') && Semver.lt(umiVersion, '4.0.0'),
         `Your umi version is ${umiVersion}, >=3.0.0 and <4 is required.`,
@@ -83,10 +83,10 @@ export default function (api: IApi) {
     const popupPath = Path.posix.join(rootPath, popupPathName);
     const vendorDllPath = Path.posix.join(distPathBefore, Path.posix.join('dll', 'vendor'));
     const userWebpackConfigMap = {entry: {}, html: {}};
-    let outputPath;
-    let mainFileGroup;
-    let manifestJson;
-    let extensionName;
+    let outputPath: string;
+    let mainFileGroup: string[];
+    let manifestJson: { [k: string]: any };
+    let extensionName: string;
 
 
     // 不生成html文件
@@ -96,7 +96,7 @@ export default function (api: IApi) {
     // 不要添加路由中间件
     process.env.ROUTE_MIDDLEWARE = 'none';
 
-    const isDev = process.env.NODE_ENV === 'development';
+    const isDev = NODE_ENV === 'development';
 
     // 启动时初始化Manifest清单文件
     api.onPluginReady(() => {
@@ -110,22 +110,24 @@ export default function (api: IApi) {
     // 修改默认配置, 重定向编译位置分为dev和build两个目录, devServer开启写入文件, 提供一个空的routes配置，这样就不会走约定式路由
     api.modifyDefaultConfig(memo => {
         // 重定向编译位置
-        outputPath = memo.outputPath;
-        const devServer = memo.devServer || {};
-        outputPath = Path.posix.join(outputPath, isDev ? 'dev' : 'build');
-        // 写入到文件,研究了半天居然有现成的方法!!!
-        devServer.writeToDisk = true;
-        // 清理历史生成的文件
-        removeFileOrDirSync(outputPath);
-        if (!isDev && support360) {
-            outputPath = Path.posix.join(outputPath, 'chrome');
+        if (memo.outputPath) {
+            outputPath = memo.outputPath;
+            const devServer = memo.devServer || {};
+            outputPath = Path.posix.join(outputPath, isDev ? 'dev' : 'build');
+            devServer.writeToDisk = true;
+            // 清理历史生成的文件
+            removeFileOrDirSync(outputPath);
+            if (!isDev && support360) {
+                outputPath = Path.posix.join(outputPath, 'chrome');
+            }
+            return {
+                ...memo,
+                routes: [],
+                outputPath,
+                devServer,
+            };
         }
-        return {
-            ...memo,
-            routes: [],
-            outputPath,
-            devServer,
-        };
+        return memo;
     });
 
     // Build完成后写入清单文件
@@ -177,6 +179,7 @@ export default function (api: IApi) {
             } else {
                 config.title = extensionName || "Chromium Extension Page";
             }
+            // @ts-ignore
             webpackConfig.plugins.push(new HTMLWebpackPlugin(config));
         });
         if (splitChunks) {
@@ -186,7 +189,7 @@ export default function (api: IApi) {
                     cacheGroups: {
                         vendor: {
                             chunks: "all",
-                            test: /\.[j|t]s[x]*$/,
+                            test: /\.[j|t]sx*$/,
                             name: vendorDllPath,
                             minChunks: 2,
                             priority: 1,
@@ -201,20 +204,20 @@ export default function (api: IApi) {
 
     function clearAbsPathName(path: string) {
         const fileText = fs.readFileSync(path, 'utf-8');
-        let index = fileText.indexOf("_node_modules_umijs_babel_preset_umi_node_modules_babel_runtime_helpers_esm_asyncToGenerator_js__WEBPACK_IMPORTED_MODULE_0_");
-        if (index > 0) {
-            while (index--) {
-                if (fileText[index] === " ") {
+        const end = fileText.indexOf("_node_modules_umijs_babel_preset_");
+        let start = end;
+        if (start > 0) {
+            while (start--) {
+                if (fileText[start] === " ") {
                     break;
                 }
             }
-            const subText = fileText.slice(index);
-            const match = subText.match(/^\s*(.*?)_node_modules_umijs_babel_preset_umi_node_modules_babel_runtime_helpers_esm_asyncToGenerator_js__WEBPACK_IMPORTED_MODULE_0_/);
-            if (match) {
-                const pathName = match[1];
-                // console.log(pathName);
-                const outText = fileText.replace(new RegExp(pathName, 'g'), "__ROOT__");
-                fs.writeFileSync(path, outText, 'utf-8');
+            if (start > 0) {
+                const pathName = fileText.slice(start, end).trim();
+                if (pathName) {
+                    const outText = fileText.replace(new RegExp(pathName, 'g'), "__ROOT__");
+                    fs.writeFileSync(path, outText, 'utf-8');
+                }
             }
         }
     }
@@ -299,7 +302,7 @@ export default function (api: IApi) {
         return config;
     }
 
-    function initManifestItemConfig(config, mainFilePath, configName, defaultConfig) {
+    function initManifestItemConfig(config: { [k: string]: any }, mainFilePath: string, configName: string, defaultConfig: { [k: string]: any }) {
         const configPath = Path.posix.join(Path.dirname(mainFilePath), configFileName);
         let userConfig = {};
         if (Fs.existsSync(configPath)) {
@@ -312,7 +315,7 @@ export default function (api: IApi) {
         }
     }
 
-    function initManifestContentScriptsItemConfig(config, mainFilePath) {
+    function initManifestContentScriptsItemConfig(config: { [k: string]: any }, mainFilePath: string) {
         const configPath = Path.posix.join(Path.dirname(mainFilePath), configFileName);
         if (Fs.existsSync(configPath)) {
             const info = JSON.parse(Fs.readFileSync(configPath, {encoding}).toString());
@@ -330,7 +333,7 @@ export default function (api: IApi) {
         }
     }
 
-    function initFilePath(path, configList) {
+    function initFilePath(path: string, configList: string[]) {
         if (configList) {
             // TODO 判断文件是否存在,然后再加上路径判断是否存在
             for (let i = 0; i < configList.length; i += 1) {
@@ -343,14 +346,14 @@ export default function (api: IApi) {
     }
 
     function getFilePathDistKey(path: string) {
-        return Path.posix.join(distPathBefore, path.replace(`${rootPath}/`, '').replace(/\.[j|t]s[x]*$/, ''));
+        return Path.posix.join(distPathBefore, path.replace(`${rootPath}/`, '').replace(/\.[j|t]sx*$/, ''));
     }
 
-    function findFileGroup(pathBefore, fileName) {
+    function findFileGroup(pathBefore: string, fileName: string) {
         return (glob.sync(`${pathBefore}/**/${fileName}`)).map(path => Path.posix.normalize(path));
     }
 
-    function writeFileSync(filePath, data) {
+    function writeFileSync(filePath: string, data: any) {
         const dir = Path.dirname(filePath);
         if (!Fs.existsSync(dir)) {
             Fs.mkdirSync(dir);
@@ -377,7 +380,7 @@ export default function (api: IApi) {
         }
     }
 
-    function removeFileOrDirSync(filePath) {
+    function removeFileOrDirSync(filePath: string) {
         try {
             if (Fs.existsSync(filePath)) {
                 const STATUS = Fs.statSync(filePath);
@@ -403,7 +406,7 @@ export default function (api: IApi) {
 
     }
 
-    function writeManifestJson(manifestJson, outputPath) {
+    function writeManifestJson(manifestJson: { [k: string]: any }, outputPath: string) {
         if (isDev || !support360) {
             writeFileSync(Path.posix.join(outputPath, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
         } else {
@@ -413,14 +416,5 @@ export default function (api: IApi) {
             writeFileSync(Path.posix.join(outputPath, '..', '360', 'manifest.json'), JSON.stringify(manifest360Json, null, 2));
         }
     }
-
-    // function getModuleTopParentModule(module) {
-    //     let parentModule = module;
-    //     while (parentModule.issuer) {
-    //         parentModule = parentModule.issuer;
-    //     }
-    //     怎么也无法格式化\\,只好手动将其替换为/
-    // return parentModule;
-    // }
 };
 
