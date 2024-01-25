@@ -19,7 +19,7 @@ interface isConfig {
     optionsPathName: string;
     popupPathName: string;
     support360: boolean;
-    clearAbsPath: boolean;
+    clearAbsPath: boolean | string;
 }
 
 const DefaultConfig: isConfig = {
@@ -68,7 +68,8 @@ export default function (api: IApi) {
                     optionsPathName: joi.string(),
                     popupPathName: joi.string(),
                     support360: joi.boolean().default(false),
-                    clearAbsPath: joi.boolean().default(true)
+                    // clearAbsPath:  boolean 和 string 二选一 ,默认为 true
+                    clearAbsPath: joi.alternatives([joi.boolean(), joi.string()]).default(true),
                 });
             },
         }
@@ -215,7 +216,7 @@ export default function (api: IApi) {
             if (start > 0) {
                 const pathName = fileText.slice(start, end).trim();
                 if (pathName) {
-                    const outText = fileText.replace(new RegExp(pathName, 'g'), "__ROOT__");
+                    const outText = fileText.replace(new RegExp(pathName, 'g'), typeof clearAbsPath === "boolean" ? "__ROOT__" : clearAbsPath);
                     fs.writeFileSync(path, outText, 'utf-8');
                 }
             }
